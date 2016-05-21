@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="description" content="MQ, SOAPui &amp; HermesJMS : ">
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>MQ, SOAPui &amp; HermesJMS</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/mnuman/MQ-SoapUI-HermesJMS">View on GitHub</a>
+
+          <h1 id="project_title">MQ, SOAPui &amp; HermesJMS</h1>
+          <h2 id="project_tagline"></h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/mnuman/MQ-SoapUI-HermesJMS/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/mnuman/MQ-SoapUI-HermesJMS/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a id="using-soapui-for-testing-mq-transport-services" class="anchor" href="#using-soapui-for-testing-mq-transport-services" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Using SoapUI for testing MQ-transport services</h1>
+
+<h2>
+<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Introduction</h2>
+
+<p>In environments where IBM has a strong presence (e.g. the financial sector), frequently MQ-based messaging solutions are part of the IT landscape. When building Service Oriented Solutions, unit testing tends to become more difficult, since the usual testing solutions do not offer support for MQ out of the box. In this blog I will describe how I solved the MQ challenges at a customer project, using the Open Source Tools SoapUI and HermesJMS.</p>
+
+<h2>
+<a id="setting-up" class="anchor" href="#setting-up" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Setting up</h2>
+
+<p>First things first: setting up the environment. Here, I am assuming you have already setup SoapUI (I used 5.2.0, available from <a href="http://www.soapui.org/downloads/soapui/open-source.html">http://www.soapui.org/downloads/soapui/open-source.html</a>) and HermesJMS (I am preferring latest &amp; greatest, version 1.15 is available through <a href="http://hermesjms.com/patches/">http://hermesjms.com/patches/</a>).</p>
+
+<h3>
+<a id="setting-up-hermesjms" class="anchor" href="#setting-up-hermesjms" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Setting up HermesJMS</h3>
+
+<p>Next, you need to startup HermesJMS and create a new session. Switch to the providers tab page to define a new Classpath Group to make the set of WebSphere MQ libraries available to HermesJMS. In this new Classpath Group, you will need to add the location of several JARs from your WebSphere MQ distribution:</p>
+
+<ul>
+<li>com.ibm.mq.commonservices.jar</li>
+<li>com.ibm.mq.headers.jar</li>
+<li>com.ibm.mq.jar</li>
+<li>com.ibm.mq.jmqi.jar</li>
+<li>com.ibm.mq.pcf.jar</li>
+<li>com.ibm.mq.mqjms.jar</li>
+<li>connector.jar</li>
+<li>dhbcore.jar
+[PICTURE HERE-1]
+Now, you can start defining your session and connection factory details (channel, hostname, port etc.). This is all you need to define in HermesJMS to get started. You will need to provide some destinations for defining your JMS endpoints.
+[PICTURE HERE-2]</li>
+</ul>
+
+<h3>
+<a id="setting-up-soapui" class="anchor" href="#setting-up-soapui" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Setting up SoapUI</h3>
+
+<p>To use HermesJMS from SoapUI, the only thing you have to do is to point SoapUI to the installation directory of HermesJMS (Preferences &gt; Tools):
+[PICTURE HERE-3]</p>
+
+<h2>
+<a id="scenario-for-test" class="anchor" href="#scenario-for-test" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Scenario for test</h2>
+
+<p>In this case, we are unit testing a Service Bus 12c component; this Service Bus component is a combination of a pipeline, a proxy exposing this pipeline over local transport a business service. The functionality that is implemented inside the pipeline is not relevant for the current discussion. The business services connect (over MQ transport) to a set of queues, one for the request, another one for the reply, the correlationId relates the messages.
+[PICTURE HERE-5]
+The test scenario is the following:</p>
+
+<ul>
+<li>SoapUI (1) will send a request message to our so-called Gateway Proxy (2), using a custom transport user-header – PUT (Proxy Under Test); this Gateway proxy service (actually a proxy and a pipeline) effectively exposes the Proxy Under Test (3) for testing purposes. It uses the PUT transport user-header to dynamically route the incoming message to the proxy we want to test.</li>
+<li>The proxy forwards the request to the pipeline (4) that implements the logic to be tested.</li>
+<li>At a certain stage, the business service (5) will be invoked by the pipeline (4).</li>
+<li>The business service publishes the request message on the Request Queue (6), using the MQ-transport.</li>
+<li>Now, SoapUI (1) retrieves this request message from the queue.</li>
+<li>An additional script step extracts the relevant information from the metadata and data of the request message that was read from the queue.</li>
+<li>Here, custom logic could be implemented to process/determine the response message.</li>
+<li>SoapUI (1) publishes the response message on the REPLY (7) queue, providing the required metadata</li>
+<li>The business service (5), listening on the REPLY (7) queue picks up the response message through message correlation.</li>
+<li>The response message is processed by the pipeline and travels the reverse path of the response message, eventually ending as the ultimate response to the SoapUI request that was sent in the first step. Here, we usally apply all kinds of checks in the form of “assertions” in our SoapUI test.</li>
+</ul>
+
+<p>The interesting steps from a test perspective are mainly steps e through h … this is were the ‘magic’ happens, all other stuff is just basic SoapUI testing.</p>
+
+<h3>
+<a id="soapui-project-setup" class="anchor" href="#soapui-project-setup" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>SoapUI Project Setup</h3>
+
+<p>The project consists of the WSDL of the service to be called, together with a number of custom project (defined at the project level for reusing in all test suites).
+[PICTURE HERE-6]
+In this case, the business service is publishing a specific type of XML message onto the IBM WebSphere MQ, and expect a similar type of XML message in response. This message exchange is not governed by a service contract, however soapUI needs to be tricked in believing that we are exchanging SOAP-messages. So, we reuse the WSDL service contract exposed as the interface of the component we will be testing in this unit test to also expose a JMS endpoint (right-click on the WSDL and “Add JMS endpoint…” to define one):
+[PICTURE HERE-7]</p>
+
+<h4>
+<a id="test-suite-anatomy" class="anchor" href="#test-suite-anatomy" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Test suite anatomy</h4>
+
+<p>When thinking about the setup, a first challenge is encountered: all interactions with the JMS queues, reading as well as writing is done using a “SOAP Request” test step. However, also the initiating step in soapUI is modelled using a “SOAP Request” test step and these SOAP Requests are blocking in soapUI. Where “SOAP Response” test steps offer the option of specifying the “start step” in order to listen for an incoming request, the “SOAP Request” will block until it receives a response.
+As an alternative in this situation, the test is modelled as a test suite, containing different test cases that are executed in parallel. The first test case (“MQ Request”) contains the soapUI SOAP request to initiate the flow (step a), the second test case (“MQ Response”) contains the soapUI “SOAP Request” test steps to pull the published MQ message from the MQ queue (step e) and publish the response (h) message to the MQ response queue. In between, message metadata is extracted from the message published on the MQ queue using a Groovy script.
+[PICTURE HERE-8]
+On the test suite, a Groovy startup script takes care of generating unique values for message identification:</p>
+
+<div class="highlight highlight-source-groovy"><pre>testSuite<span class="pl-k">.</span>setPropertyValue(<span class="pl-s"><span class="pl-pds">"</span>MessageId<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">'</span>MSG_<span class="pl-pds">'</span></span> <span class="pl-k">+</span> context<span class="pl-k">.</span>expand( <span class="pl-s"><span class="pl-pds">'</span>${=java.util.UUID.randomUUID()}<span class="pl-pds">'</span></span> ))
+testSuite<span class="pl-k">.</span>setPropertyValue(<span class="pl-s"><span class="pl-pds">"</span>RelatesTo<span class="pl-pds">"</span></span>, context<span class="pl-k">.</span>expand( <span class="pl-s"><span class="pl-pds">'</span>${=java.util.UUID.randomUUID()}<span class="pl-pds">'</span></span> ))
+log<span class="pl-k">.</span>info <span class="pl-s"><span class="pl-pds">"</span>TestSuite:<span class="pl-pds">"</span></span> <span class="pl-k">+</span> testSuite<span class="pl-k">.</span>getName() <span class="pl-k">+</span> <span class="pl-s"><span class="pl-pds">"</span>, MessageId=<span class="pl-pds">"</span></span> <span class="pl-k">+</span> testSuite<span class="pl-k">.</span>getPropertyValue(<span class="pl-s"><span class="pl-pds">"</span>MessageId<span class="pl-pds">"</span></span>) <span class="pl-k">+</span> <span class="pl-s"><span class="pl-pds">"</span>, RelatesTo=<span class="pl-pds">"</span></span> <span class="pl-k">+</span> testSuite<span class="pl-k">.</span>getPropertyValue(<span class="pl-s"><span class="pl-pds">"</span>RelatesTo<span class="pl-pds">"</span></span>)</pre></div>
+
+<h4>
+<a id="the-initiating-request" class="anchor" href="#the-initiating-request" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>The initiating request</h4>
+
+<p>The soapUI request message that initiates the interaction is quite straight forward:
+[PICTURE HERE-9]</p>
+
+<h4>
+<a id="retrieving-the-mq-message" class="anchor" href="#retrieving-the-mq-message" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Retrieving the MQ message</h4>
+
+<p>Retrieving the message from an MQ queue is done easily using a soapUI “SOAP Request” step. In this case, we have specified the URL in such a format that it will only retrieve the published message (and not yet supply the response message):
+[PICTURE HERE-10]</p>
+
+<p>From the format of the URL (jms://MQ::-::queue_PREFIX.${GlobalProperty}.${#Project#DSRequestQueue}), you can see the interaction with the messaging system is done as jms; the “MQ” identifier refers to the HermesJMS session. The second argument (“-“) is a placeholder to indicate that a response is not (yet) published, the final argument queue_PREFIX.${GlobalProperty}.${#Project#DSRequestQueue} defines the queue the message is read from; in this case, we have a FIXED part (PREFIX), an environment specific value derived from GlobalProperty and a project specific property value.</p>
+
+<h4>
+<a id="obtaining-the-correlation-value" class="anchor" href="#obtaining-the-correlation-value" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Obtaining the correlation value</h4>
+
+<p>To assure that the inbound MQ response message can be correlated with the outbound MQ request message, the business service has been setup for correlation on the messageId. This implies that the messageId value from the outbound MQ request message needs to be provided as the JMS correlation Id on the inbound response message.
+In order to retrieve the messageId on the outbound MQ request message, a small snippet of Groovy code is executed to extract this messageId value into a testcase property:</p>
+
+<p>[PICTURE HERE-11]</p>
+
+<h4>
+<a id="publishing-the-mq-response" class="anchor" href="#publishing-the-mq-response" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Publishing the MQ response</h4>
+
+<p>The final step in this scenario consists of publishing the MQ response message to the reply queue (this message is picked up by the business service, based on the correct correlationId), again using a “SOAP Request”:</p>
+
+<p>[PICTURE HERE-12]</p>
+
+<p>As you can see from the URL jms://MQ::queue_PREFIX.${ GlobalProperty}.${#Project#DSReplyQueue}::
+the same MQ session is used for publishing the reply. Also in this case, only one action (writing the message) is involved in the SoapUI request. Again, the queue for publishing this message is composed of several parts, specific to the setup of our environment.</p>
+
+<h2>
+<a id="groovy-alternative" class="anchor" href="#groovy-alternative" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Groovy alternative</h2>
+
+<p>As an alternative to interacting with MQ over JMS-bindings using HermesJMS, you may also consider interacting with MQ using Groovy Scripts. Roughly, this involves making the JARs mentioned in the setup for HermesJMS available (you can omit the mqjms, pcf and dhbcore JARs), but now soapUI should be aware of them: copy or link the JARs into your <code>&lt;SOAPUI_HOME&gt;/bin/ext</code> folder</p>
+
+<h3>
+<a id="retrieving-an-mq-message-using-groovy" class="anchor" href="#retrieving-an-mq-message-using-groovy" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Retrieving an MQ message using Groovy</h3>
+
+<div class="highlight highlight-source-groovy"><pre><span class="pl-c">//Connect to the queue manager</span>
+<span class="pl-c">//Queue used for putting message</span>
+<span class="pl-k">def</span> propIQueue <span class="pl-k">=</span> testRunner<span class="pl-k">.</span>testCase<span class="pl-k">.</span>getProperty(<span class="pl-s"><span class="pl-pds">"</span>inputqueue<span class="pl-pds">"</span></span>)
+<span class="pl-k">def</span> propHostname <span class="pl-k">=</span> testRunner<span class="pl-k">.</span>testCase<span class="pl-k">.</span>getProperty(<span class="pl-s"><span class="pl-pds">"</span>hostname<span class="pl-pds">"</span></span>) 
+<span class="pl-k">def</span> propPort <span class="pl-k">=</span> testRunner<span class="pl-k">.</span>testCase<span class="pl-k">.</span>getProperty(<span class="pl-s"><span class="pl-pds">"</span>port<span class="pl-pds">"</span></span>)
+<span class="pl-k">def</span> propChannel <span class="pl-k">=</span> testRunner<span class="pl-k">.</span>testCase<span class="pl-k">.</span>getProperty(<span class="pl-s"><span class="pl-pds">"</span>channel<span class="pl-pds">"</span></span>)
+<span class="pl-k">def</span> propQM <span class="pl-k">=</span> testRunner<span class="pl-k">.</span>testCase<span class="pl-k">.</span>getProperty(<span class="pl-s"><span class="pl-pds">"</span>queuemanager<span class="pl-pds">"</span></span>)
+<span class="pl-k">def</span> queueManager <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-k">com.ibm.mq.MQQueueManager</span>(propQM<span class="pl-k">.</span>getValue())
+<span class="pl-k">com.ibm.mq.MQEnvironment</span><span class="pl-k">.</span>@hostname <span class="pl-k">=</span> propHostname<span class="pl-k">.</span>getValue()
+<span class="pl-k">com.ibm.mq.MQEnvironment</span><span class="pl-k">.</span>@port <span class="pl-k">=</span> <span class="pl-k">Integer</span><span class="pl-k">.</span>parseInt(propPort<span class="pl-k">.</span>getValue())                       
+<span class="pl-k">com.ibm.mq.MQEnvironment</span><span class="pl-k">.</span>@channel <span class="pl-k">=</span> propChannel<span class="pl-k">.</span>getValue()        
+
+<span class="pl-c">//Put message in queue</span>
+<span class="pl-k">def</span> putMsg <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-k">com.ibm.mq.MQMessage</span>();
+<span class="pl-k">int</span> putOpenOpts <span class="pl-k">=</span> com<span class="pl-k">.</span>ibm<span class="pl-k">.</span>mq<span class="pl-k">.</span><span class="pl-c1">MQC</span><span class="pl-k">.</span><span class="pl-c1">MQOO_OUTPUT</span> | com<span class="pl-k">.</span>ibm<span class="pl-k">.</span>mq<span class="pl-k">.</span><span class="pl-c1">MQC</span><span class="pl-k">.</span><span class="pl-c1">MQOO_FAIL_IF_QUIESCING</span>;
+<span class="pl-k">def</span> putQ <span class="pl-k">=</span> queueManager<span class="pl-k">.</span>accessQueue(propIQueue<span class="pl-k">.</span>getValue(), putOpenOpts);
+putMsg<span class="pl-k">.</span>@format <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>MQSTR<span class="pl-pds">"</span></span>;
+putMsg<span class="pl-k">.</span>@priority <span class="pl-k">=</span> <span class="pl-c1">2</span>;
+m_strCorrelationID <span class="pl-k">=</span> java<span class="pl-k">.</span>util<span class="pl-k">.</span><span class="pl-c1">UUID</span><span class="pl-k">.</span>randomUUID()<span class="pl-k">.</span>toString()<span class="pl-k">.</span>replace(<span class="pl-s"><span class="pl-pds">'</span>-<span class="pl-pds">'</span></span>,<span class="pl-s"><span class="pl-pds">'</span><span class="pl-pds">'</span></span>)<span class="pl-k">.</span>substring(<span class="pl-c1">0</span>,<span class="pl-c1">24</span>);
+<span class="pl-c">// push back correlationID string to testcase property</span>
+testRunner<span class="pl-k">.</span>testCase<span class="pl-k">.</span>setPropertyValue(<span class="pl-s"><span class="pl-pds">"</span>strMQCorrelationID<span class="pl-pds">"</span></span>, m_strCorrelationID);
+putMsg<span class="pl-k">.</span>@correlationId <span class="pl-k">=</span> m_strCorrelationID<span class="pl-k">.</span>getBytes();
+putMsg<span class="pl-k">.</span>@messageId <span class="pl-k">=</span> m_strCorrelationID<span class="pl-k">.</span>getBytes();
+putMsg<span class="pl-k">.</span>writeString(<span class="pl-s"><span class="pl-pds">"</span>0101AapNootMies0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789<span class="pl-pds">"</span></span> <span class="pl-k">+</span> m_strCorrelationID);
+<span class="pl-k">def</span> pmo <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-k">com.ibm.mq.MQPutMessageOptions</span>();
+putQ<span class="pl-k">.</span>put(putMsg, pmo);
+putQ<span class="pl-k">.</span>close()
+log<span class="pl-k">.</span>info <span class="pl-s"><span class="pl-pds">"</span>Publishing MQ correlationId = <span class="pl-pds">"</span></span>  <span class="pl-k">+</span> putMsg<span class="pl-k">.</span>@correlationId 
+log<span class="pl-k">.</span>info <span class="pl-s"><span class="pl-pds">"</span>Publishing MQ messageId = <span class="pl-pds">"</span></span>  <span class="pl-k">+</span> putMsg<span class="pl-k">.</span>@messageId</pre></div>
+
+<h3>
+<a id="publishing-an-mq-message-using-groovy" class="anchor" href="#publishing-an-mq-message-using-groovy" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Publishing an MQ message using Groovy</h3>
+
+<div class="highlight highlight-source-groovy"><pre><span class="pl-k">def</span> groovyUtils <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-k">com.eviware.soapui.support.GroovyUtils</span>( context )
+<span class="pl-c">//Connect to the queue manager</span>
+<span class="pl-c">//Queue used for putting message</span>
+<span class="pl-k">def</span> propIQueue <span class="pl-k">=</span> testRunner<span class="pl-k">.</span>testCase<span class="pl-k">.</span>getProperty(<span class="pl-s"><span class="pl-pds">"</span>inputqueue<span class="pl-pds">"</span></span>)
+<span class="pl-k">def</span> propOQueue <span class="pl-k">=</span> testRunner<span class="pl-k">.</span>testCase<span class="pl-k">.</span>getProperty(<span class="pl-s"><span class="pl-pds">"</span>outputqueue<span class="pl-pds">"</span></span>)
+<span class="pl-k">def</span> propHostname <span class="pl-k">=</span> testRunner<span class="pl-k">.</span>testCase<span class="pl-k">.</span>getProperty(<span class="pl-s"><span class="pl-pds">"</span>hostname<span class="pl-pds">"</span></span>) 
+<span class="pl-k">def</span> propPort <span class="pl-k">=</span> testRunner<span class="pl-k">.</span>testCase<span class="pl-k">.</span>getProperty(<span class="pl-s"><span class="pl-pds">"</span>port<span class="pl-pds">"</span></span>)
+<span class="pl-k">def</span> propChannel <span class="pl-k">=</span> testRunner<span class="pl-k">.</span>testCase<span class="pl-k">.</span>getProperty(<span class="pl-s"><span class="pl-pds">"</span>channel<span class="pl-pds">"</span></span>)
+<span class="pl-k">com.ibm.mq.MQEnvironment</span><span class="pl-k">.</span>@hostname <span class="pl-k">=</span> propHostname<span class="pl-k">.</span>getValue()
+<span class="pl-k">com.ibm.mq.MQEnvironment</span><span class="pl-k">.</span>@port <span class="pl-k">=</span> <span class="pl-k">Integer</span><span class="pl-k">.</span>parseInt(propPort<span class="pl-k">.</span>getValue())                       
+<span class="pl-k">com.ibm.mq.MQEnvironment</span><span class="pl-k">.</span>@channel <span class="pl-k">=</span> propChannel<span class="pl-k">.</span>getValue()        
+<span class="pl-c">//setting Queue Manager</span>
+<span class="pl-k">def</span> propQM <span class="pl-k">=</span> testRunner<span class="pl-k">.</span>testCase<span class="pl-k">.</span>getProperty(<span class="pl-s"><span class="pl-pds">"</span>queuemanager<span class="pl-pds">"</span></span>)
+<span class="pl-k">def</span> queueManager <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-k">com.ibm.mq.MQQueueManager</span>(propQM<span class="pl-k">.</span>getValue())
+<span class="pl-k">def</span> getMsg <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-k">com.ibm.mq.MQMessage</span>();
+<span class="pl-k">int</span> getOpenOpts <span class="pl-k">=</span>  com<span class="pl-k">.</span>ibm<span class="pl-k">.</span>mq<span class="pl-k">.</span><span class="pl-c1">MQC</span><span class="pl-k">.</span><span class="pl-c1">MQGMO_WAIT</span>;
+<span class="pl-k">com.ibm.mq.MQGetMessageOptions</span> gmo <span class="pl-k">=</span> <span class="pl-k">new</span> <span class="pl-k">com.ibm.mq.MQGetMessageOptions</span>();
+<span class="pl-k">def</span> getQ <span class="pl-k">=</span> queueManager<span class="pl-k">.</span>accessQueue(propOQueue<span class="pl-k">.</span>getValue(), getOpenOpts);
+<span class="pl-c">// retrieve correlationID from testcase property</span>
+m_strCorrelationID <span class="pl-k">=</span> testRunner<span class="pl-k">.</span>testCase<span class="pl-k">.</span>getPropertyValue(<span class="pl-s"><span class="pl-pds">"</span>strMQCorrelationID<span class="pl-pds">"</span></span>);
+<span class="pl-c">// log.info "Listening for MQ message with correlationID = "  + m_strCorrelationID</span>
+<span class="pl-c">// listen specifically for the requested correlationID, i.e. the one from the property</span>
+getMsg<span class="pl-k">.</span>@correlationId <span class="pl-k">=</span> m_strCorrelationID<span class="pl-k">.</span>getBytes();
+getMsg<span class="pl-k">.</span>@messageId <span class="pl-k">=</span> com<span class="pl-k">.</span>ibm<span class="pl-k">.</span>mq<span class="pl-k">.</span><span class="pl-c1">MQC</span><span class="pl-k">.</span><span class="pl-c1">MQMI_NONE</span>;
+gmo<span class="pl-k">.</span>@waitInterval <span class="pl-k">=</span> <span class="pl-c1">5000</span>;
+getQ<span class="pl-k">.</span>get(getMsg, gmo);
+<span class="pl-k">def</span> response <span class="pl-k">=</span> getMsg<span class="pl-k">.</span>readString(getMsg<span class="pl-k">.</span>getMessageLength())
+getQ<span class="pl-k">.</span>close()
+log<span class="pl-k">.</span>info <span class="pl-s"><span class="pl-pds">"</span>Received message correlationId: <span class="pl-pds">"</span></span> <span class="pl-k">+</span> getMsg<span class="pl-k">.</span>@correlationId
+log<span class="pl-k">.</span>info <span class="pl-s"><span class="pl-pds">"</span>Received message messageId: <span class="pl-pds">"</span></span> <span class="pl-k">+</span> getMsg<span class="pl-k">.</span>@messageId
+<span class="pl-c">//log.info "MQ response received: "  + response</span></pre></div>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">MQ, SOAPui &amp; HermesJMS maintained by <a href="https://github.com/mnuman">mnuman</a></p>
+        <p>Published with <a href="https://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
