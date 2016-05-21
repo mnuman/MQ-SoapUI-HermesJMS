@@ -93,7 +93,7 @@
 <li>The response message is processed by the pipeline and travels the reverse path of the response message, eventually ending as the ultimate response to the SoapUI request that was sent in the first step. Here, we usally apply all kinds of checks in the form of “assertions” in our SoapUI test.</li>
 </ul>
 
-<p>The interesting steps from a test perspective are mainly steps e through h … this is were the ‘magic’ happens, all other stuff is just basic SoapUI testing.</p>
+<p>The interesting steps from a test perspective are mainly steps 5 to 8 … this is were the ‘magic’ happens, all other stuff is just basic SoapUI testing.</p>
 
 <h3>
 <a id="soapui-project-setup" class="anchor" href="#soapui-project-setup" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>SoapUI Project Setup</h3>
@@ -108,7 +108,7 @@
 <a id="test-suite-anatomy" class="anchor" href="#test-suite-anatomy" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Test suite anatomy</h4>
 
 <p>When thinking about the setup, a first challenge is encountered: all interactions with the JMS queues, reading as well as writing is done using a “SOAP Request” test step. However, also the initiating step in soapUI is modelled using a “SOAP Request” test step and these SOAP Requests are blocking in soapUI. Where “SOAP Response” test steps offer the option of specifying the “start step” in order to listen for an incoming request, the “SOAP Request” will block until it receives a response.
-As an alternative in this situation, the test is modelled as a test suite, containing different test cases that are executed in parallel. The first test case (“MQ Request”) contains the soapUI SOAP request to initiate the flow (step a), the second test case (“MQ Response”) contains the soapUI “SOAP Request” test steps to pull the published MQ message from the MQ queue (step e) and publish the response (h) message to the MQ response queue. In between, message metadata is extracted from the message published on the MQ queue using a Groovy script.</p>
+As an alternative in this situation, the test is modelled as a test suite, containing different test cases that are executed in parallel. The first test case (“MQ Request”) contains the soapUI SOAP request to initiate the flow (first step), the second test case (“MQ Response”) contains the soapUI “SOAP Request” test steps to pull the published MQ message from the MQ queue (fifth step) and publish the response (step 8) message to the MQ response queue. In between, message metadata is extracted from the message published on the MQ queue using a Groovy script.</p>
 
 <p><img src="https://raw.githubusercontent.com/mnuman/MQ-SoapUI-HermesJMS/gh-pages/images/SOAPUI-MQ-8-Testsuite%20anatomy.PNG" alt="SoapUI TestSuite anatomy for MQ"></p>
 
@@ -130,7 +130,7 @@ log<span class="pl-k">.</span>info <span class="pl-s"><span class="pl-pds">"</sp
 <p>Retrieving the message from an MQ queue is done easily using a soapUI “SOAP Request” step. In this case, we have specified the URL in such a format that it will only retrieve the published message (and not yet supply the response message):
 <img src="https://raw.githubusercontent.com/mnuman/MQ-SoapUI-HermesJMS/gh-pages/images/SOAPUI-MQ-10-Retrieving%20MQ%20message.PNG" alt="URL for retrieving a message from MQ"></p>
 
-<p>From the format of the URL (jms://MQ::-::queue_PREFIX.${GlobalProperty}.${#Project#DSRequestQueue}), you can see the interaction with the messaging system is done as jms; the “MQ” identifier refers to the HermesJMS session. The second argument (“-“) is a placeholder to indicate that a response is not (yet) published, the final argument queue_PREFIX.${GlobalProperty}.${#Project#DSRequestQueue} defines the queue the message is read from; in this case, we have a FIXED part (PREFIX), an environment specific value derived from GlobalProperty and a project specific property value.</p>
+<p>From the format of the URL (<code>jms://MQ::-::queue_PREFIX.${GlobalProperty}.${#Project#DSRequestQueue}</code>), you can see the interaction with the messaging system is done as jms; the “MQ” identifier refers to the HermesJMS session. The second argument (“-“) is a placeholder to indicate that a response is not (yet) published, the final argument <code>queue_PREFIX.${GlobalProperty}.${#Project#DSRequestQueue}</code> defines the queue the message will be read from; in this case, we have a FIXED part (PREFIX), an environment specific value derived from GlobalProperty and a project specific property value.</p>
 
 <h4>
 <a id="obtaining-the-correlation-value" class="anchor" href="#obtaining-the-correlation-value" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Obtaining the correlation value</h4>
@@ -140,6 +140,8 @@ In order to retrieve the messageId on the outbound MQ request message, a small s
 
 <p><img src="https://raw.githubusercontent.com/mnuman/MQ-SoapUI-HermesJMS/gh-pages/images/SOAPUI-MQ-11-Extracting%20the%20JMS%20messageId.PNG" alt="Extracting the JMS MessageId"></p>
 
+<p><strong>Note the comment</strong>: the JMSMessageID object being returned is an <em>ARRAY - not a scalar value</em> !</p>
+
 <h4>
 <a id="publishing-the-mq-response" class="anchor" href="#publishing-the-mq-response" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Publishing the MQ response</h4>
 
@@ -147,7 +149,7 @@ In order to retrieve the messageId on the outbound MQ request message, a small s
 
 <p><img src="https://raw.githubusercontent.com/mnuman/MQ-SoapUI-HermesJMS/gh-pages/images/SOAPUI-MQ-12-Providing%20the%20MQ%20response.PNG" alt="Providing a MQ response"></p>
 
-<p>As you can see from the URL jms://MQ::queue_PREFIX.${ GlobalProperty}.${#Project#DSReplyQueue}::
+<p>As you can see from the URL <code>jms://MQ::queue_PREFIX.${ GlobalProperty}.${#Project#DSReplyQueue}::</code>
 the same MQ session is used for publishing the reply. Also in this case, only one action (writing the message) is involved in the SoapUI request. Again, the queue for publishing this message is composed of several parts, specific to the setup of our environment.</p>
 
 <h2>
