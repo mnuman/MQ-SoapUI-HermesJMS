@@ -4,7 +4,7 @@
   <head>
     <meta charset='utf-8'>
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <meta name="description" content="MQ, SOAPui &amp; HermesJMS : ">
+    <meta name="description" content="MQ, SOAPui &amp; HermesJMS : How to test Service Bus MQ-transports using SOAPui &amp; HermesJMS">
 
     <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
 
@@ -19,7 +19,7 @@
           <a id="forkme_banner" href="https://github.com/mnuman/MQ-SoapUI-HermesJMS">View on GitHub</a>
 
           <h1 id="project_title">MQ, SOAPui &amp; HermesJMS</h1>
-          <h2 id="project_tagline"></h2>
+          <h2 id="project_tagline">How to test Service Bus MQ-transports using SOAPui &amp; HermesJMS</h2>
 
             <section id="downloads">
               <a class="zip_download_link" href="https://github.com/mnuman/MQ-SoapUI-HermesJMS/zipball/master">Download this project as a .zip file</a>
@@ -58,23 +58,27 @@
 <li>com.ibm.mq.mqjms.jar</li>
 <li>connector.jar</li>
 <li>dhbcore.jar
-[PICTURE HERE-1]
-Now, you can start defining your session and connection factory details (channel, hostname, port etc.). This is all you need to define in HermesJMS to get started. You will need to provide some destinations for defining your JMS endpoints.
-[PICTURE HERE-2]</li>
+<img src="https://github.com/mnuman/MQ-SoapUI-HermesJMS/blob/gh-pages/images/SOAPUI-MQ-1-HermesJMS-Classpath-Group.png" alt="HermesJMS Classpath Setup">
+</li>
 </ul>
+
+<p>Now, you can start defining your session and connection factory details (channel, hostname, port etc.). This is all you need to define in HermesJMS to get started. You will need to provide some destinations for defining your JMS endpoints.
+<img src="https://github.com/mnuman/MQ-SoapUI-HermesJMS/blob/gh-pages/images/SOAPUI-MQ-2-HermesJMS-Session.png" alt="HermesJMS Session for MQ"></p>
 
 <h3>
 <a id="setting-up-soapui" class="anchor" href="#setting-up-soapui" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Setting up SoapUI</h3>
 
 <p>To use HermesJMS from SoapUI, the only thing you have to do is to point SoapUI to the installation directory of HermesJMS (Preferences &gt; Tools):
-[PICTURE HERE-3]</p>
+<img src="https://github.com/mnuman/MQ-SoapUI-HermesJMS/blob/gh-pages/images/SOAPUI-MQ-3-SoapUI-HermesJMS.png" alt="Starting HermesJMS from SoapUI">
+<img src="https://github.com/mnuman/MQ-SoapUI-HermesJMS/blob/gh-pages/images/SOAPUI-MQ-4-SoapUI-ProjectConfiguration.png" alt="ProjectConfiguration"></p>
 
 <h2>
 <a id="scenario-for-test" class="anchor" href="#scenario-for-test" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Scenario for test</h2>
 
 <p>In this case, we are unit testing a Service Bus 12c component; this Service Bus component is a combination of a pipeline, a proxy exposing this pipeline over local transport a business service. The functionality that is implemented inside the pipeline is not relevant for the current discussion. The business services connect (over MQ transport) to a set of queues, one for the request, another one for the reply, the correlationId relates the messages.
-[PICTURE HERE-5]
-The test scenario is the following:</p>
+<img src="https://github.com/mnuman/MQ-SoapUI-HermesJMS/blob/gh-pages/images/SOAPUI-MQ-5-TestSetup.png" alt="Test setup"></p>
+
+<p>The test scenario is the following:</p>
 
 <ul>
 <li>SoapUI (1) will send a request message to our so-called Gateway Proxy (2), using a custom transport user-header – PUT (Proxy Under Test); this Gateway proxy service (actually a proxy and a pipeline) effectively exposes the Proxy Under Test (3) for testing purposes. It uses the PUT transport user-header to dynamically route the incoming message to the proxy we want to test.</li>
@@ -95,17 +99,20 @@ The test scenario is the following:</p>
 <a id="soapui-project-setup" class="anchor" href="#soapui-project-setup" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>SoapUI Project Setup</h3>
 
 <p>The project consists of the WSDL of the service to be called, together with a number of custom project (defined at the project level for reusing in all test suites).
-[PICTURE HERE-6]
-In this case, the business service is publishing a specific type of XML message onto the IBM WebSphere MQ, and expect a similar type of XML message in response. This message exchange is not governed by a service contract, however soapUI needs to be tricked in believing that we are exchanging SOAP-messages. So, we reuse the WSDL service contract exposed as the interface of the component we will be testing in this unit test to also expose a JMS endpoint (right-click on the WSDL and “Add JMS endpoint…” to define one):
-[PICTURE HERE-7]</p>
+<img src="https://github.com/mnuman/MQ-SoapUI-HermesJMS/blob/gh-pages/images/SOAPUI-MQ-6-Testproject.PNG" alt="SoapUI Testproject"></p>
+
+<p>In this case, the business service is publishing a specific type of XML message onto the IBM WebSphere MQ, and expect a similar type of XML message in response. This message exchange is not governed by a service contract, however soapUI needs to be tricked in believing that we are exchanging SOAP-messages. So, we reuse the WSDL service contract exposed as the interface of the component we will be testing in this unit test to also expose a JMS endpoint (right-click on the WSDL and “Add JMS endpoint…” to define one):
+<img src="https://github.com/mnuman/MQ-SoapUI-HermesJMS/blob/gh-pages/images/SOAPUI-MQ-7-WSDL%20JMS%20endpoint.PNG" alt="Modifying the WSDL"></p>
 
 <h4>
 <a id="test-suite-anatomy" class="anchor" href="#test-suite-anatomy" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Test suite anatomy</h4>
 
 <p>When thinking about the setup, a first challenge is encountered: all interactions with the JMS queues, reading as well as writing is done using a “SOAP Request” test step. However, also the initiating step in soapUI is modelled using a “SOAP Request” test step and these SOAP Requests are blocking in soapUI. Where “SOAP Response” test steps offer the option of specifying the “start step” in order to listen for an incoming request, the “SOAP Request” will block until it receives a response.
-As an alternative in this situation, the test is modelled as a test suite, containing different test cases that are executed in parallel. The first test case (“MQ Request”) contains the soapUI SOAP request to initiate the flow (step a), the second test case (“MQ Response”) contains the soapUI “SOAP Request” test steps to pull the published MQ message from the MQ queue (step e) and publish the response (h) message to the MQ response queue. In between, message metadata is extracted from the message published on the MQ queue using a Groovy script.
-[PICTURE HERE-8]
-On the test suite, a Groovy startup script takes care of generating unique values for message identification:</p>
+As an alternative in this situation, the test is modelled as a test suite, containing different test cases that are executed in parallel. The first test case (“MQ Request”) contains the soapUI SOAP request to initiate the flow (step a), the second test case (“MQ Response”) contains the soapUI “SOAP Request” test steps to pull the published MQ message from the MQ queue (step e) and publish the response (h) message to the MQ response queue. In between, message metadata is extracted from the message published on the MQ queue using a Groovy script.</p>
+
+<p><img src="https://github.com/mnuman/MQ-SoapUI-HermesJMS/blob/gh-pages/images/SOAPUI-MQ-8-Testsuite%20anatomy.PNG" alt="SoapUI TestSuite anatomy for MQ"></p>
+
+<p>On the test suite, a Groovy startup script takes care of generating unique values for message identification:</p>
 
 <div class="highlight highlight-source-groovy"><pre>testSuite<span class="pl-k">.</span>setPropertyValue(<span class="pl-s"><span class="pl-pds">"</span>MessageId<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">'</span>MSG_<span class="pl-pds">'</span></span> <span class="pl-k">+</span> context<span class="pl-k">.</span>expand( <span class="pl-s"><span class="pl-pds">'</span>${=java.util.UUID.randomUUID()}<span class="pl-pds">'</span></span> ))
 testSuite<span class="pl-k">.</span>setPropertyValue(<span class="pl-s"><span class="pl-pds">"</span>RelatesTo<span class="pl-pds">"</span></span>, context<span class="pl-k">.</span>expand( <span class="pl-s"><span class="pl-pds">'</span>${=java.util.UUID.randomUUID()}<span class="pl-pds">'</span></span> ))
@@ -115,13 +122,13 @@ log<span class="pl-k">.</span>info <span class="pl-s"><span class="pl-pds">"</sp
 <a id="the-initiating-request" class="anchor" href="#the-initiating-request" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>The initiating request</h4>
 
 <p>The soapUI request message that initiates the interaction is quite straight forward:
-[PICTURE HERE-9]</p>
+<img src="https://github.com/mnuman/MQ-SoapUI-HermesJMS/blob/gh-pages/images/SOAPUI-MQ-9-Initiating%20Request.PNG" alt="Initiating Request"></p>
 
 <h4>
 <a id="retrieving-the-mq-message" class="anchor" href="#retrieving-the-mq-message" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Retrieving the MQ message</h4>
 
 <p>Retrieving the message from an MQ queue is done easily using a soapUI “SOAP Request” step. In this case, we have specified the URL in such a format that it will only retrieve the published message (and not yet supply the response message):
-[PICTURE HERE-10]</p>
+<img src="https://github.com/mnuman/MQ-SoapUI-HermesJMS/blob/gh-pages/images/SOAPUI-MQ-10-Retrieving%20MQ%20message.PNG" alt="URL for retrieving a message from MQ"></p>
 
 <p>From the format of the URL (jms://MQ::-::queue_PREFIX.${GlobalProperty}.${#Project#DSRequestQueue}), you can see the interaction with the messaging system is done as jms; the “MQ” identifier refers to the HermesJMS session. The second argument (“-“) is a placeholder to indicate that a response is not (yet) published, the final argument queue_PREFIX.${GlobalProperty}.${#Project#DSRequestQueue} defines the queue the message is read from; in this case, we have a FIXED part (PREFIX), an environment specific value derived from GlobalProperty and a project specific property value.</p>
 
@@ -131,14 +138,14 @@ log<span class="pl-k">.</span>info <span class="pl-s"><span class="pl-pds">"</sp
 <p>To assure that the inbound MQ response message can be correlated with the outbound MQ request message, the business service has been setup for correlation on the messageId. This implies that the messageId value from the outbound MQ request message needs to be provided as the JMS correlation Id on the inbound response message.
 In order to retrieve the messageId on the outbound MQ request message, a small snippet of Groovy code is executed to extract this messageId value into a testcase property:</p>
 
-<p>[PICTURE HERE-11]</p>
+<p><img src="https://github.com/mnuman/MQ-SoapUI-HermesJMS/blob/gh-pages/images/SOAPUI-MQ-11-Extracting%20the%20JMS%20messageId.PNG" alt="Extracting the JMS MessageId"></p>
 
 <h4>
 <a id="publishing-the-mq-response" class="anchor" href="#publishing-the-mq-response" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Publishing the MQ response</h4>
 
 <p>The final step in this scenario consists of publishing the MQ response message to the reply queue (this message is picked up by the business service, based on the correct correlationId), again using a “SOAP Request”:</p>
 
-<p>[PICTURE HERE-12]</p>
+<p><img src="https://github.com/mnuman/MQ-SoapUI-HermesJMS/blob/gh-pages/images/SOAPUI-MQ-12-Providing%20the%20MQ%20response.PNG" alt="Providing a MQ response"></p>
 
 <p>As you can see from the URL jms://MQ::queue_PREFIX.${ GlobalProperty}.${#Project#DSReplyQueue}::
 the same MQ session is used for publishing the reply. Also in this case, only one action (writing the message) is involved in the SoapUI request. Again, the queue for publishing this message is composed of several parts, specific to the setup of our environment.</p>
